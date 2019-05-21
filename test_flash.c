@@ -123,9 +123,12 @@ const unsigned char Bl_Ver1 @ 0xF0FE = 0x01; // Bl_Ver
 // 0xF1       app checksum                   0xXX
 // 0xF0       app valid                      0xXX
 
-const unsigned char App_Valid @ 0xF0F0 = 0x11; // app valid
+//const unsigned char App_Valid @ 0xF0F0 = 0x11; // app valid
 
 #define FDR_DAT_START_ADDRESS 0xF0
+#define FDR_DAT_APP_VALID_ADDRESS 0xF0   // eep write address are 1 byte
+    #define MASTER_MAC_START_ADD 0x70F4  // read addresses are alwys two bytes
+    #define MASTER_MAC_END_ADD 0x70F7
 #define FECT_DAT_START_ADDRESS 0xF8
 
 struct Str_Com
@@ -181,11 +184,12 @@ void interrupt serrvice_isr()
 }
 uint8 frame[69]; // one for command , 2 for address , 64  for data240
 uint16 count; // used for delay
-
 //0xAA is appp valid else invalid
 uint8 dat_cnt;     // stores no of bytes
 uint8 data_checksum;  // checksum data
-// uint8 reset_char = RSTCMD;    
+// uint8 reset_char = RSTCMD;   
+uint8 mac_user = 0;  // this flag is 1 if mac user is validated
+
 void main(void)
 {
     //OSCILLATOR
@@ -247,57 +251,74 @@ void main(void)
             if(count == 0xFFFF) // break detected
             { // process data 
                 set_pin_0;
-                if(frame[0] == WR_FLH) //write flash request 
+                Bt_Data.Com.lent = 5; // all responces are of 5 byte long
+                if(mac_user)
                 {
-                    if(dat_cnt==67)
+                    if(frame[0] == WR_FLH) //write flash request 
                     {
-                        Bt_Data.Flh.writeAddr=*((uint16*)&frame[1u]);
-                        Bt_Data.Flh.flashWordArray=&frame[3u];
-                        if((Bt_Data.Flh.writeAddr >= NEW_RESET_VECTOR) && (Bt_Data.Flh.writeAddr <= END_FLASH)) //prevent application to write bootloader memory
+                        Bt_Data.Flh.result = 0xFF; // error incorrect address OR Length
+                        if(dat_cnt==67)
                         {
-                            Bt_FlashWriteBlock();
+                            Bt_Data.Flh.writeAddr=*((uint16*)&frame[1u]);
+                            Bt_Data.Flh.flashWordArray=&frame[3u];
+                            if((Bt_Data.Flh.writeAddr >= NEW_RESET_VECTOR) && (Bt_Data.Flh.writeAddr <= END_FLASH)) //prevent application to write bootloader memory
+                            {
+                                Bt_FlashWriteBlock();
+                            }
                         }
-                        else
-                        {
-                            Bt_Data.Flh.result = 0xFF;
-                        }
-                        frame[1]=Bt_Data.Flh.result;
+                        frame[1] = Bt_Data.Flh.result;
+                       // Bt_Data.Com.lent=2;
                     }
-                    else
+                    else if(frame[0] == WR_EEP) // write eeprom
                     {
-                        frame[1]=0xFF;
+                        Bt_Data.EepWr.add=frame[1u];
+                        Bt_Data.EepWr.eep_data=frame[3u];        
+                        Bt_WriteEep();
+                       // Bt_Data.Com.lent=2;
                     }
-                     Bt_Data.Com.lent=2;
-                }
-                else if(frame[0] == WR_EEP) // write eeprom
-                {
-                    Bt_Data.EepWr.add=frame[1u];
-                    Bt_Data.EepWr.eep_data=frame[3u];        
-                    Bt_WriteEep();
-                    Bt_Data.Com.lent=2;
-                }
-                else if((frame[0] == RD_FLH) || (frame[0] == RD_EEP)) // read flash  OR // read eeprom request
-                {
-                    Bt_Data.ReadMem.add = (*((uint16*)&frame[1u]));
-                    Bt_Data.ReadMem.typ = (frame[0]-RD_FLH);
-                    Bt_ReadData();            
-                    *((uint16*)(&frame[3])) = Bt_Data.ReadMem.result;
-                    Bt_Data.Com.lent=5;
+                    else if((frame[0] == RD_FLH) || (frame[0] == RD_EEP)) // read flash  OR // read eeprom request
+                    {
+                        Bt_Data.ReadMem.add = (*((uint16*)&frame[1u]));
+                        Bt_Data.ReadMem.typ = (frame[0]-RD_FLH);
+                        Bt_ReadData();            
+                        *((uint16*)(&frame[3])) = Bt_Data.ReadMem.result;
+                        // Bt_Data.Com.lent=5;
+
+                    }
                     
+                    else if ((frame[0] == RSTCMD) )
+                    {
+                        asm("RESET"); // send back ping 
+                    }
+                    else if ((frame[0] == READ_RAM) )
+                    {
+                        Bt_Data.ReadMem.add = (*((uint16*)&frame[1u]));
+                        *((uint16*)(&frame[3])) = *(uint16 *)(Bt_Data.ReadMem.add);
+                        // Bt_Data.Com.lent = 5;
+                    }
                 }
-                else if ((frame[0] == PING) ) // awake signal , sand awake back
+                if ((frame[0] == PING) ) // awake signal , sand awake back
                 {
-                    Bt_Data.Com.lent=1; // send back ping 
+                   // Bt_Data.Com.lent = 1; // send back ping 
                 }
-                else if ((frame[0] == RSTCMD) )
+                else if ((frame[0] == MAST_AUTH) ) // awake signal , sand awake back
                 {
-                    asm("RESET"); // send back ping 
-                }
-                else if ((frame[0] == READ_RAM) )
-                {
-                    Bt_Data.ReadMem.add = (*((uint16*)&frame[1u]));
-                    *((uint16*)(&frame[3])) = *(uint16 *)(Bt_Data.ReadMem.add);
-                    Bt_Data.Com.lent=5;
+                    
+                    Bt_Data.ReadMem.add = MASTER_MAC_START_ADD;
+                    Bt_Data.ReadMem.typ = 1;
+                    mac_user = 1; 
+                    uint8 *mac_frame = &frame[1];
+                    while(Bt_Data.ReadMem.add <= MASTER_MAC_END_ADD) // verify MAC address
+                    {
+                        Bt_ReadData(); // read eeprom
+                        Bt_Data.ReadMem.add++;
+                        if((uint8)Bt_Data.ReadMem.result != *mac_frame)
+                        {
+                          mac_user = 0; // Not a Master MAC user , send 0xFF as MAC after FDR to grant access oxFF is default mac address
+                        }
+                        mac_frame++;
+                    }
+                   // Bt_Data.Com.lent = 5;
                 }
                 else if((dat_cnt == 0)) //no data received check if app valid
                 {
@@ -328,22 +349,22 @@ void main(void)
                          {
                              clear_pin_0;
                             // jump to application
-                             TX1REG=(0x55);
-                             while(TXIF==0);
+                             //TX1REG=(0x55);
+                             //while(TXIF==0);
                              STKPTR = 0x1F;
                              asm ("pagesel " str(NEW_RESET_VECTOR));
                              asm ("goto  "  str(NEW_RESET_VECTOR));
                          }
                          else
                          {
-                             Bt_Data.EepWr.add = 0xF0; // f0f0 make application invalid
-                             Bt_Data.EepWr.eep_data = 0xFF;        
+                             Bt_Data.EepWr.add = FDR_DAT_APP_VALID_ADDRESS; // f0f0 make application invalid
+                             Bt_Data.EepWr.eep_data = DEF;        
                              Bt_WriteEep();
                              
                          }
 
                      }
-                     Bt_Data.Com.lent = 0;  // canot be removed
+                     Bt_Data.Com.lent = 0;  // cannot be removed
                 }
                 Bt_Data.Com.ptr = frame;   
                 Bt_ComSendData();   
@@ -455,6 +476,7 @@ void Bt_WriteEep(void) // @ 0x0150
     while(NVMCON1bits.WR);
     WREN = 0;
 }
+
 /*
 asm("global _memcpy");
 void memcpy(uint8* to, const uint8* from,uint8 lnt )
@@ -486,4 +508,4 @@ uint8 memcmp(const uint8* to, const uint8* from, uint8 lnt )
     }
     return temp;
 }
-*/
+  */
