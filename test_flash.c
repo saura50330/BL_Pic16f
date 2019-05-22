@@ -118,18 +118,28 @@ const unsigned char Bl_Ver1 @ 0xF0FE = 0x01; // Bl_Ver
 // 0xF6       master_mac_2                   0xXX
 // 0xF5       master_mac_1                   0xXX
 // 0xF4       master_mac_0                   0xXX
-// 0xF3       reserved                       0xXX
+// 0xF3       Mac OK                         0xXX    // 0xFF means not written , else written, and this random value is access link key
 // 0xF2       app version                    0xXX
 // 0xF1       app checksum                   0xXX
 // 0xF0       app valid                      0xXX
 
 //const unsigned char App_Valid @ 0xF0F0 = 0x11; // app valid
 
-#define FDR_DAT_START_ADDRESS 0xF0
-#define FDR_DAT_APP_VALID_ADDRESS 0xF0   // eep write address are 1 byte
-    #define MASTER_MAC_START_ADD 0x70F4  // read addresses are alwys two bytes
-    #define MASTER_MAC_END_ADD 0x70F7
-#define FECT_DAT_START_ADDRESS 0xF8
+#define FDR_DAT_START_ADDRESS_LSB 0xF0
+#define FDR_DAT_APP_VALID_ADDRESS_LSB 0xF0   // eep write address are 1 byte
+#define FDR_DAT_APP_VALID_ADDRESS 0x70F0
+#define FDR_DAT_CHECKSUM_ADDRESS 0x70F1
+#define FDR_DAT_CHECKSUM_ADDRESS_LSB F1
+#define FDR_DAT_MASTER_FREEZ_ADD 0x70F3
+#define FDR_DAT_MASTER_FREEZ_ADD_LSB 0xF3
+#define FDR_DAT_MASTER_MAC_START_ADD 0x70F4  // read addresses are alwys two bytes
+#define FDR_DAT_MASTER_MAC_START_ADD_LSB 0xF4
+#define FDR_DAT_MASTER_MAC_END_ADD 0x70F7
+#define FDR_DAT_MASTER_MAC_END_ADD_LSB 0xF7
+
+#define FECT_DAT_START_ADDRESS_LSB 0xF8
+
+#define APP_VALID_DAT 0xAA  // this data indicates app is valid and can be jmed to app after CRC validation
 
 struct Str_Com
 {
@@ -218,9 +228,21 @@ void main(void)
         Bt_Data.Com.lent = 9;
         Bt_Data.Com.ptr = "AT+BAUD7"; // set 57k baud
         Bt_ComSendData();
+        
+        /*
+        // set default UN 
+        Bt_Data.Com.lent = 10;
+        Bt_Data.Com.ptr =  "AT+NAMECD"; 
+        Bt_ComSendData();
+        // set Default  PW
+        Bt_Data.Com.lent = 10;        
+        Bt_Data.Com.ptr =  "AT+PIN007";
+        Bt_ComSendData();
+        */
+        
         // erase data which is reset erasable
-        Bt_Data.EepWr.add = FDR_DAT_START_ADDRESS; // f0ff make application invalid
-        while(Bt_Data.EepWr.add < FECT_DAT_START_ADDRESS)
+        Bt_Data.EepWr.add = FDR_DAT_START_ADDRESS_LSB; // f0ff make application invalid
+        while(Bt_Data.EepWr.add < FECT_DAT_START_ADDRESS_LSB)
         {
             Bt_Data.EepWr.eep_data = 0xFF;        
             Bt_WriteEep();
@@ -271,9 +293,22 @@ void main(void)
                     }
                     else if(frame[0] == WR_EEP) // write eeprom
                     {
-                        Bt_Data.EepWr.add=frame[1u];
-                        Bt_Data.EepWr.eep_data=frame[3u];        
-                        Bt_WriteEep();
+                        Bt_Data.ReadMem.add = FDR_DAT_MASTER_FREEZ_ADD;
+                        Bt_Data.ReadMem.typ = 1;
+                        Bt_ReadData(); // read eeprom
+                        
+                        if((frame[3u] > FDR_DAT_MASTER_FREEZ_ADD_LSB) && (frame[3u] < FECT_DAT_START_ADDRESS_LSB) && ((uint8)Bt_Data.ReadMem.result != 0xFF))  // user canot wite this once written without FDR
+                        {
+                              // do not write MAC  FDR to re wite MAC
+                              // Sequence wite the MAC
+                              // set 0xF3 to random value !=0xFF
+                        }
+                        else // other data so can be writtan
+                        {
+                            Bt_Data.EepWr.add=frame[1u];
+                            Bt_Data.EepWr.eep_data=frame[3u]; 
+                            Bt_WriteEep();
+                        }
                        // Bt_Data.Com.lent=2;
                     }
                     else if((frame[0] == RD_FLH) || (frame[0] == RD_EEP)) // read flash  OR // read eeprom request
@@ -290,12 +325,14 @@ void main(void)
                     {
                         asm("RESET"); // send back ping 
                     }
+                    /*
                     else if ((frame[0] == READ_RAM) )
                     {
                         Bt_Data.ReadMem.add = (*((uint16*)&frame[1u]));
                         *((uint16*)(&frame[3])) = *(uint16 *)(Bt_Data.ReadMem.add);
                         // Bt_Data.Com.lent = 5;
                     }
+                    */
                 }
                 if ((frame[0] == PING) ) // awake signal , sand awake back
                 {
@@ -304,11 +341,11 @@ void main(void)
                 else if ((frame[0] == MAST_AUTH) ) // awake signal , sand awake back
                 {
                     
-                    Bt_Data.ReadMem.add = MASTER_MAC_START_ADD;
+                    Bt_Data.ReadMem.add = FDR_DAT_MASTER_MAC_START_ADD;
                     Bt_Data.ReadMem.typ = 1;
                     mac_user = 1; 
                     uint8 *mac_frame = &frame[1];
-                    while(Bt_Data.ReadMem.add <= MASTER_MAC_END_ADD) // verify MAC address
+                    while(Bt_Data.ReadMem.add <= FDR_DAT_MASTER_MAC_END_ADD) // verify MAC address
                     {
                         Bt_ReadData(); // read eeprom
                         Bt_Data.ReadMem.add++;
@@ -320,13 +357,13 @@ void main(void)
                     }
                    // Bt_Data.Com.lent = 5;
                 }
-                else if((dat_cnt == 0)) //no data received check if app valid
+                else if((dat_cnt == 0)) //no data is received then check if app valid
                 {
-                    Bt_Data.ReadMem.add = 0x70F0;
+                    Bt_Data.ReadMem.add = FDR_DAT_APP_VALID_ADDRESS;
                     Bt_Data.ReadMem.typ = 1;
                     Bt_ReadData(); // read eeprom
                    
-                    if((uint8)Bt_Data.ReadMem.result == 0xAA) //0xAA is appp valid else invalid // application valid flag is true, // NVM adress starts from 7000h to 70FFh last byte
+                    if((uint8)Bt_Data.ReadMem.result == APP_VALID_DAT) //0xAA is appp valid else invalid // application valid flag is true, // NVM adress starts from 7000h to 70FFh last byte
                      {
                          // verify app
                          Bt_Data.ReadMem.add = APP_START_ADD; 
@@ -341,14 +378,14 @@ void main(void)
                              Bt_Data.ReadMem.add++;
                          }     
                          
-                         Bt_Data.ReadMem.add = 0x70F1;
+                         Bt_Data.ReadMem.add = FDR_DAT_CHECKSUM_ADDRESS;
                          Bt_Data.ReadMem.typ = 1;
                          Bt_ReadData(); // read eeprom
                          
                          if((data_checksum == (uint8)Bt_Data.ReadMem.result) && data_checksum) // valid app
                          {
                              clear_pin_0;
-                            // jump to application
+                             // jump to application
                              //TX1REG=(0x55);
                              //while(TXIF==0);
                              STKPTR = 0x1F;
@@ -357,7 +394,7 @@ void main(void)
                          }
                          else
                          {
-                             Bt_Data.EepWr.add = FDR_DAT_APP_VALID_ADDRESS; // f0f0 make application invalid
+                             Bt_Data.EepWr.add = FDR_DAT_APP_VALID_ADDRESS_LSB; // f0f0 make application invalid
                              Bt_Data.EepWr.eep_data = DEF;        
                              Bt_WriteEep();
                              
