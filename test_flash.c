@@ -229,16 +229,17 @@ void main(void)
         Bt_Data.Com.ptr = "AT+BAUD7"; // set 57k baud
         Bt_ComSendData();
         
-        /*
+        
         // set default UN 
         Bt_Data.Com.lent = 10;
         Bt_Data.Com.ptr =  "AT+NAMECD"; 
         Bt_ComSendData();
+		
         // set Default  PW
-        Bt_Data.Com.lent = 10;        
-        Bt_Data.Com.ptr =  "AT+PIN007";
+        Bt_Data.Com.lent = 11;        
+        Bt_Data.Com.ptr =  "AT+PIN0007";
         Bt_ComSendData();
-        */
+        
         
         // erase data which is reset erasable
         Bt_Data.EepWr.add = FDR_DAT_START_ADDRESS_LSB; // f0ff make application invalid
@@ -297,7 +298,7 @@ void main(void)
                         Bt_Data.ReadMem.typ = 1;
                         Bt_ReadData(); // read eeprom
                         
-                        if((frame[3u] > FDR_DAT_MASTER_FREEZ_ADD_LSB) && (frame[3u] < FECT_DAT_START_ADDRESS_LSB) && ((uint8)Bt_Data.ReadMem.result != 0xFF))  // user canot wite this once written without FDR
+                        if((frame[3u] >= FDR_DAT_MASTER_FREEZ_ADD_LSB) && (frame[3u] < FECT_DAT_START_ADDRESS_LSB) && ((uint8)Bt_Data.ReadMem.result != 0xFF))  // user canot wite this once written without FDR
                         {
                               // do not write MAC  FDR to re wite MAC
                               // Sequence wite the MAC
