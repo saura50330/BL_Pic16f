@@ -93,6 +93,8 @@
 
 #define WRITE_FLASH_BLOCKSIZE    32
 #define ERASE_FLASH_BLOCKSIZE    32
+#define START_WRITE_FLASH_BLOCKSIZE (WRITE_FLASH_BLOCKSIZE - 1)
+
 
 
 
@@ -211,6 +213,7 @@ uint8 LID[LID_LEN];
 uint8 lid_len_cnt = 0;
 uint8 dev_type_ota = 0;
 uint8 *mac_frame;
+
 void main(void)
 {
     //OSCILLATOR
@@ -231,14 +234,17 @@ void main(void)
     TX1STA=0x24;  //  transmitter config
     BRG16 = 0;    // set baud rate at 32 MZ internal ocillator
     
+    RC1STA=0x90;  // enable seial port
+    
     if(get_pin_5 == 0)  // if switch is pressed on power up
     { 
         while(get_pin_5 == 0);// wait for switch to release
         SPBRG=207u;   // baud
-        RC1STA=0x90;  // enable seial port
+
         Bt_Data.Com.lent = 9;
-        Bt_Data.Com.ptr = "AT+BAUD7"; // set 57k baud
-        Bt_ComSendData();
+        Bt_Data.Com.ptr = "AT+BAUD7"; // set 57k baud 
+        Bt_ComSendData();  // but this command is sent at 9600 baud
+       
         
         // READ default BLE pin stored in EEPROM 
         Bt_Data.ReadMem.add = FECT_DAT_LID_START_ADDRESS;
@@ -251,6 +257,10 @@ void main(void)
             Bt_Data.ReadMem.add++;
         }
         LID[lid_len_cnt]=0; // end of line
+       
+        // set the def baud
+        SPBRG=34u;    // 34: 57.6k , 103:19.3k , 207:9600
+        
         // set default UN 
         Bt_Data.Com.lent = 9;  //  do not send end of string
         Bt_Data.Com.ptr = "AT+NAMECD" ; 
@@ -279,13 +289,9 @@ void main(void)
         }
     }
     
-   // Bt_Data.Com.lent = 1; // one chrecter sent out on evry reset
-   // Bt_Data.Com.ptr = &reset_char; // set 57k baud
-    
+    // set the baud
     SPBRG=34u;    // 34: 57.6k , 103:19.3k , 207:9600
-    RC1STA=0x90;  // enable seial port
-    
-   // Bt_ComSendData();
+
     
     while(1)
     { 
@@ -410,7 +416,7 @@ void main(void)
                     Bt_Data.ReadMem.typ = 1;
                     Bt_ReadData(); // read eeprom
                     
-                    if((uint8)Bt_Data.ReadMem.result == dev_type_ota) //0xAA is appp valid else invalid // application valid flag is true, // NVM adress starts from 7000h to 70FFh last byte
+                    if(((uint8)Bt_Data.ReadMem.result == dev_type_ota) && ((uint8)Bt_Data.ReadMem.result != DEF)) //0xAA is appp valid else invalid // application valid flag is true, // NVM adress starts from 7000h to 70FFh last byte
                      {
                          // verify app
                          Bt_Data.ReadMem.add = APP_START_ADD; 
@@ -452,7 +458,7 @@ void main(void)
                 }
                 Bt_Data.Com.ptr = frame;   
                 Bt_ComSendData();   
-                count = 0;
+                //count = 0;
                 frame[0] = DEF; // this is to make sure on bus idle default is executed
                 dat_cnt = 0;
                 clear_pin_0;
@@ -471,22 +477,26 @@ void Bt_ComSendData(void) //@0x013D
         Bt_Data.Com.lent--;
         while(TXIF==0); // wait for buffer to empty
     }
+    while(!TRMT); // wait till all bits are trasmitted
 }
 asm("global _Bt_FlashWriteBlock"); // this will remove optimization for below function , code will be generated for ame
 void  Bt_FlashWriteBlock(void)  //@ 0x00CF
 {
-    uint8  i,sum=0;
-           
+    uint8  i;
+    Bt_Data.Flh.result = 0;       
+    
     NVMCON1bits.WRERR = 0;      // clear WRERR bit at power up
     NVMCON1bits.NVMREGS=0;
     
     while(WR);
     // Flash write must start at the beginning of a row
     //-------------------- Block erase sequence
-     // Load lower 8 bits of erase address boundary
-    NVMADRL = (Bt_Data.Flh.writeAddr & 0xFF);
+    NVMADR = Bt_Data.Flh.writeAddr;
+    
+    // Load lower 8 bits of erase address boundary
+    // NVMADRL = (Bt_Data.Flh.writeAddr & 0xFF);
     // Load upper 6 bits of erase address boundary
-    NVMADRH = ((Bt_Data.Flh.writeAddr & 0xFF00) >> 8);
+    // NVMADRH = ((Bt_Data.Flh.writeAddr & 0xFF00) >> 8);
 
     // Block erase sequence
 
@@ -501,17 +511,20 @@ void  Bt_FlashWriteBlock(void)  //@ 0x00CF
 
     for (i=0; i<WRITE_FLASH_BLOCKSIZE; i++)
     {
+        NVMADR = Bt_Data.Flh.writeAddr;
         // Load lower 8 bits of write address
-        NVMADRL = (Bt_Data.Flh.writeAddr & 0xFF);
+        //NVMADRL = (Bt_Data.Flh.writeAddr & 0xFF);
         // Load upper 6 bits of write address
-        NVMADRH = ((Bt_Data.Flh.writeAddr & 0xFF00) >> 8);
+       // NVMADRH = ((Bt_Data.Flh.writeAddr & 0xFF00) >> 8);
 
     // Load data in current address
-        NVMDATL = Bt_Data.Flh.flashWordArray[i];
-        sum+=NVMDATL;
-        NVMDATH = ((Bt_Data.Flh.flashWordArray[i] & 0xFF00) >> 8);
-        sum+=NVMDATH;
-        if(i == (WRITE_FLASH_BLOCKSIZE-1))
+        NVMDAT = Bt_Data.Flh.flashWordArray[i];
+        
+        //NVMDATL = Bt_Data.Flh.flashWordArray[i];
+        Bt_Data.Flh.result += NVMDATL;
+        //NVMDATH = ((Bt_Data.Flh.flashWordArray[i] & 0xFF00) >> 8);
+        Bt_Data.Flh.result += NVMDATH;
+        if(i == START_WRITE_FLASH_BLOCKSIZE)
         {
             // Start Flash program memory write
             NVMCON1bits.LWLO = 0;
@@ -519,10 +532,10 @@ void  Bt_FlashWriteBlock(void)  //@ 0x00CF
         Bt_UnlockSeq();
         Bt_Data.Flh.writeAddr++;
     }
-    sum&=0x7F;
+    Bt_Data.Flh.result &= 0x7F;
     NVMCON1bits.WREN = 0;       // Disable writes
  
-    Bt_Data.Flh.result = sum;
+    //Bt_Data.Flh.result = sum;
 }
 
 asm("global _Bt_UnlockSeq"); // this will remove optimization for below function , code will be generated for ame
@@ -551,11 +564,11 @@ asm("global _Bt_WriteEep"); // this will remove optimization for below function 
 void Bt_WriteEep(void) // @ 0x0150
 {       
     NVMCON1bits.WRERR = 0;      // clear WRERR bit at power up
-    NVMCON1bits.NVMREGS=1;
+    NVMCON1bits.NVMREGS = 1;
     WREN = 1;
-    NVMADRH=0x70;   // NVM adress starts from 7000h to 70FFh
-    NVMADRL=Bt_Data.EepWr.add;
-    NVMDATL=Bt_Data.EepWr.eep_data;
+    NVMADRH = 0x70;   // NVM adress starts from 7000h to 70FFh
+    NVMADRL = Bt_Data.EepWr.add;
+    NVMDATL = Bt_Data.EepWr.eep_data;
     Bt_UnlockSeq();
     while(NVMCON1bits.WR);
     WREN = 0;
