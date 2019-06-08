@@ -56,7 +56,7 @@
 // at the interrupt vector and will contain a jump to
 // 0x0204
 #define END_FLASH                0x7FF
-#define APP_START_ADD            0x200
+#define APP_START_ADD            0x260
 
 #define  NEW_RESET_VECTOR        APP_START_ADD
 #define  NEW_INTERRUPT_VECTOR    APP_START_ADD + 4 // 0x204
@@ -103,27 +103,31 @@ typedef unsigned int uint16;
 
 // un changed EEPROM  location or updated in fectory command 
 // location   meaning                  value  
-// 0xFF       fectory data present     0x01   // when this bit is set application can not program keys
+// 0xFF       fectory data present     0x01   // when this bit is set application can not program keys OR locations from 0xF8 to 0xFF
 // 0xFE       Bl version               0x01
 // 0xFD       reserved                 0xXX
-// 0xFC       device type              0xXX
-// 0xFB       LID  3                   0xXX
-// 0xFA       LID  2                   0xXX
-// 0xF9       LID  1                   0xXX
-// 0xF8       LID  0                   0xXX
+// 0xFC       device type              0xXX   // 0x01 : DEvmo device , 0x02 : wall switch
+// 0xFB       LID  3                   0xXX...// unique lock ID  UN/PW
+// 0xFA       LID  2                   0xXX...// unique lock ID  UN/PW
+// 0xF9       LID  1                   0xXX...// unique lock ID  UN/PW
+// 0xF8       LID  0                   0xXX...// unique lock ID  UN/PW 
 const unsigned char Bl_Ver1 @ 0xF0FE = 0x01; // Bl_Ver
 
+const unsigned char LID_EEP[4] @ 0xF0F8 = {'1','2','3','4'};// default LID to be used for fectory programming
+
+
 // below is FDR data (0xF0 to F7))
-// 0xF7       master_mac_3                   0xXX
+// 0xF7       master_mac_3                   0xXX // Only first 4 bytes from mac are considerd as MAC 
 // 0xF6       master_mac_2                   0xXX
 // 0xF5       master_mac_1                   0xXX
 // 0xF4       master_mac_0                   0xXX
 // 0xF3       Mac OK                         0xXX    // 0xFF means not written , else written, and this random value is access link key
 // 0xF2       app version                    0xXX
 // 0xF1       app checksum                   0xXX
-// 0xF0       app valid                      0xXX
+// 0xF0       app valid                      0xXX    // written by OTA at end ,if matches with device type 0xFC jump to crc validation 
 
 //const unsigned char App_Valid @ 0xF0F0 = 0x11; // app valid
+
 
 #define FDR_DAT_START_ADDRESS_LSB 0xF0
 #define FDR_DAT_APP_VALID_ADDRESS_LSB 0xF0   // eep write address are 1 byte
@@ -137,9 +141,14 @@ const unsigned char Bl_Ver1 @ 0xF0FE = 0x01; // Bl_Ver
 #define FDR_DAT_MASTER_MAC_END_ADD 0x70F7
 #define FDR_DAT_MASTER_MAC_END_ADD_LSB 0xF7
 
+#define FECT_DAT_START_ADDRESS 0x70F8
+#define FECT_DAT_LID_START_ADDRESS 0x70F8
+#define LID_LEN 4u
+
 #define FECT_DAT_START_ADDRESS_LSB 0xF8
 
-#define APP_VALID_DAT 0xAA  // this data indicates app is valid and can be jmed to app after CRC validation
+#define FECT_DAT_DEV_TYP_ADDRESS 0x70FC  // this data (device id) indicates app is valid and can be jmed to app after CRC validation
+
 
 struct Str_Com
 {
@@ -180,9 +189,9 @@ void   Bt_FlashWriteBlock(void); // @  0x00C5;
 void   Bt_ReadData(void);       //  @ 0x0166;
 void   Bt_WriteEep(void);       //  @ 0x012A;
 
-void memcpy(uint8* to, const uint8* from,uint8 lnt );
+//void memcpy(uint8* to, const uint8* from,uint8 lnt );
 
-void interrupt serrvice_isr()
+void interrupt serrvice_isr()  // all interrupt will jump to this def address but we are making it to jump some differant address
 {
 	asm ("pagesel  " str (NEW_INTERRUPT_VECTOR));
     asm ("goto   " str (NEW_INTERRUPT_VECTOR));
@@ -197,9 +206,11 @@ uint16 count; // used for delay
 //0xAA is appp valid else invalid
 uint8 dat_cnt;     // stores no of bytes
 uint8 data_checksum;  // checksum data
-// uint8 reset_char = RSTCMD;   
 uint8 mac_user = 0;  // this flag is 1 if mac user is validated
-
+uint8 LID[LID_LEN];
+uint8 lid_len_cnt = 0;
+uint8 dev_type_ota = 0;
+uint8 *mac_frame;
 void main(void)
 {
     //OSCILLATOR
@@ -229,17 +240,34 @@ void main(void)
         Bt_Data.Com.ptr = "AT+BAUD7"; // set 57k baud
         Bt_ComSendData();
         
-        
+        // READ default BLE pin stored in EEPROM 
+        Bt_Data.ReadMem.add = FECT_DAT_LID_START_ADDRESS;
+        Bt_Data.ReadMem.typ = 1;
+        while(lid_len_cnt < LID_LEN)
+        {
+            Bt_ReadData(); // read eeprom  
+            LID[lid_len_cnt] = (uint8)Bt_Data.ReadMem.result;
+            lid_len_cnt++;
+            Bt_Data.ReadMem.add++;
+        }
+        LID[lid_len_cnt]=0; // end of line
         // set default UN 
-        Bt_Data.Com.lent = 10;
-        Bt_Data.Com.ptr =  "AT+NAMECD"; 
-        Bt_ComSendData();
-		
-        // set Default  PW
-        Bt_Data.Com.lent = 11;        
-        Bt_Data.Com.ptr =  "AT+PIN0007";
+        Bt_Data.Com.lent = 9;  //  do not send end of string
+        Bt_Data.Com.ptr = "AT+NAMECD" ; 
         Bt_ComSendData();
         
+        Bt_Data.Com.lent = 5; // send end of string chr
+        Bt_Data.Com.ptr = LID;
+        Bt_ComSendData();
+          
+        // set Default  PW
+        Bt_Data.Com.lent = 6;        
+        Bt_Data.Com.ptr =  "AT+PIN";
+        Bt_ComSendData();
+        
+        Bt_Data.Com.lent = 5; // send end of string chr
+        Bt_Data.Com.ptr = LID;
+        Bt_ComSendData();
         
         // erase data which is reset erasable
         Bt_Data.EepWr.add = FDR_DAT_START_ADDRESS_LSB; // f0ff make application invalid
@@ -290,15 +318,16 @@ void main(void)
                             }
                         }
                         frame[1] = Bt_Data.Flh.result;
-                       // Bt_Data.Com.lent=2;
+   
                     }
                     else if(frame[0] == WR_EEP) // write eeprom
                     {
+                        // check if MAC address is already stored flag
                         Bt_Data.ReadMem.add = FDR_DAT_MASTER_FREEZ_ADD;
                         Bt_Data.ReadMem.typ = 1;
                         Bt_ReadData(); // read eeprom
                         
-                        if((frame[3u] >= FDR_DAT_MASTER_FREEZ_ADD_LSB) && (frame[3u] < FECT_DAT_START_ADDRESS_LSB) && ((uint8)Bt_Data.ReadMem.result != 0xFF))  // user canot wite this once written without FDR
+                        if((frame[3u] > FDR_DAT_MASTER_FREEZ_ADD_LSB) && (frame[3u] < FECT_DAT_START_ADDRESS_LSB) && ((uint8)Bt_Data.ReadMem.result != 0xFF))  // user canot wite this once written without FDR
                         {
                               // do not write MAC  FDR to re wite MAC
                               // Sequence wite the MAC
@@ -310,8 +339,9 @@ void main(void)
                             Bt_Data.EepWr.eep_data=frame[3u]; 
                             Bt_WriteEep();
                         }
-                       // Bt_Data.Com.lent=2;
+  
                     }
+                    /*
                     else if((frame[0] == RD_FLH) || (frame[0] == RD_EEP)) // read flash  OR // read eeprom request
                     {
                         Bt_Data.ReadMem.add = (*((uint16*)&frame[1u]));
@@ -321,7 +351,14 @@ void main(void)
                         // Bt_Data.Com.lent=5;
 
                     }
-                    
+                    */
+                    else if((frame[0] == RD_EEP))
+                    {
+                        Bt_Data.ReadMem.add = (*((uint16*)&frame[1u]));
+                        Bt_Data.ReadMem.typ = 1;
+                        Bt_ReadData();            
+                        *((uint16*)(&frame[3])) = Bt_Data.ReadMem.result;
+                    }
                     else if ((frame[0] == RSTCMD) )
                     {
                         asm("RESET"); // send back ping 
@@ -340,31 +377,40 @@ void main(void)
                    // Bt_Data.Com.lent = 1; // send back ping 
                 }
                 else if ((frame[0] == MAST_AUTH) ) // awake signal , sand awake back
-                {
-                    
+                {  
                     Bt_Data.ReadMem.add = FDR_DAT_MASTER_MAC_START_ADD;
                     Bt_Data.ReadMem.typ = 1;
                     mac_user = 1; 
-                    uint8 *mac_frame = &frame[1];
+                    
+                    mac_frame = &frame[1];
                     while(Bt_Data.ReadMem.add <= FDR_DAT_MASTER_MAC_END_ADD) // verify MAC address
                     {
                         Bt_ReadData(); // read eeprom
-                        Bt_Data.ReadMem.add++;
+                        
                         if((uint8)Bt_Data.ReadMem.result != *mac_frame)
                         {
                           mac_user = 0; // Not a Master MAC user , send 0xFF as MAC after FDR to grant access oxFF is default mac address
                         }
+                        
+                        Bt_Data.ReadMem.add++;
                         mac_frame++;
                     }
-                   // Bt_Data.Com.lent = 5;
+
                 }
                 else if((dat_cnt == 0)) //no data is received then check if app valid
                 {
+                    // Read Device Type written by OTA
                     Bt_Data.ReadMem.add = FDR_DAT_APP_VALID_ADDRESS;
                     Bt_Data.ReadMem.typ = 1;
                     Bt_ReadData(); // read eeprom
-                   
-                    if((uint8)Bt_Data.ReadMem.result == APP_VALID_DAT) //0xAA is appp valid else invalid // application valid flag is true, // NVM adress starts from 7000h to 70FFh last byte
+                    dev_type_ota = (uint8)Bt_Data.ReadMem.result;
+                     // Read Device Type written by FECTORY
+                    
+                    Bt_Data.ReadMem.add = FECT_DAT_DEV_TYP_ADDRESS;
+                    Bt_Data.ReadMem.typ = 1;
+                    Bt_ReadData(); // read eeprom
+                    
+                    if((uint8)Bt_Data.ReadMem.result == dev_type_ota) //0xAA is appp valid else invalid // application valid flag is true, // NVM adress starts from 7000h to 70FFh last byte
                      {
                          // verify app
                          Bt_Data.ReadMem.add = APP_START_ADD; 
