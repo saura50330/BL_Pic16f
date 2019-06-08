@@ -5,7 +5,7 @@ Linker command line:
 -W-3 --edf=C:\Program Files (x86)\Microchip\xc8\v2.05\pic\dat\en_msgs.txt \
   -cs -h+dist/default/production\BL_Pic16f-master.production.sym \
   --cmf=dist/default/production\BL_Pic16f-master.production.cmf -z \
-  -Q16F18313 -oC:\Users\NDHAVA~1\AppData\Local\Temp\s3kg.2 \
+  -Q16F18313 -oC:\Users\NDHAVA~1\AppData\Local\Temp\s3a0.2 \
   --defsym=__MPLAB_BUILD=1 \
   -Mdist/default/production/BL_Pic16f-master.production.map -E1 -ver=XC8 \
   --acfsm=1493 -ASTACK=02095h-020EFh -pstack=STACK -p_LID_EEP_text=F0F8h \
@@ -29,7 +29,7 @@ Linker command line:
   -pfunctab=ENTRY -ACONFIG=08007h-0800Ah -pconfig=CONFIG -DCONFIG=2 \
   -AIDLOC=08000h-08003h -pidloc=IDLOC -DIDLOC=2 -AEEDATA=00h-0FFh/0F000h \
   -peeprom_data=EEDATA -DEEDATA=2 -DCODE=2 -DSTRCODE=2 -DSTRING=2 -DCONST=2 \
-  -DENTRY=2 -k C:\Users\NDHAVA~1\AppData\Local\Temp\s3kg.o \
+  -DENTRY=2 -k C:\Users\NDHAVA~1\AppData\Local\Temp\s3a0.o \
   dist/default/production\BL_Pic16f-master.production.o 
 
 Object code version is 3.11
@@ -39,7 +39,7 @@ Machine type is 16F18313
 
 
                 Name                               Link     Load   Length Selector   Space Scale
-C:\Users\NDHAVA~1\AppData\Local\Temp\s3kg.o
+C:\Users\NDHAVA~1\AppData\Local\Temp\s3a0.o
                 stack                              2095     2095       5B     2095       2
                 end_init                              C        C        1        8       0
                 reset_vec                             0        0        1        0       0
@@ -47,19 +47,19 @@ C:\Users\NDHAVA~1\AppData\Local\Temp\s3kg.o
 dist/default/production\BL_Pic16f-master.production.o
                 cinit                                 D        D       16        8       0
                 intentry                              4        4        8        8       0
-                text6                               21A      21A       16        8       0
-                text5                               203      203       17        8       0
-                text4                               243      243        9      486       0
-                text3                               1A1      1A1       4B        8       0
-                text2                               1EC      1EC       17        8       0
-                maintext                             23       23      17E        8       0
-                clrtext                             253      253        6      4A6       0
+                text6                               217      217       16        8       0
+                text5                               200      200       17        8       0
+                text4                               240      240        9      480       0
+                text3                               19E      19E       4B        8       0
+                text2                               1E9      1E9       17        8       0
+                maintext                             23       23      17B        8       0
+                clrtext                             250      250        6      4A0       0
                 bssBANK1                             A0       A0       45       A0       1
                 bssBANK0l                            20       20        8       20       1
                 bssCOMMON                            70       70        4       70       1
-                stringtext3                         24C      24C        7      498       0
-                stringtext2                         23A      23A        9      460       0
-                stringtext1                         230      230        A      460       0
+                stringtext3                         249      249        7      492       0
+                stringtext2                         237      237        9      45A       0
+                stringtext1                         22D      22D        A      45A       0
                 _Bl_Ver1_text                      F0FE     F0FE        1    1E1FC       0
                 _LID_EEP_text                      F0F8     F0F8        4    1E1F0       0
 
@@ -72,18 +72,18 @@ TOTAL           Name                               Link     Load   Length     Sp
                 cinit                                 D        D       16         0
                 intentry                              4        4        8         0
                 reset_vec                             0        0        1         0
-                text6                               21A      21A       16         0
-                text5                               203      203       17         0
-                text4                               243      243        9         0
-                text3                               1A1      1A1       4B         0
-                text2                               1EC      1EC       17         0
-                maintext                             23       23      17E         0
-                clrtext                             253      253        6         0
+                text6                               217      217       16         0
+                text5                               200      200       17         0
+                text4                               240      240        9         0
+                text3                               19E      19E       4B         0
+                text2                               1E9      1E9       17         0
+                maintext                             23       23      17B         0
+                clrtext                             250      250        6         0
 
         CLASS   STRCODE        
-                stringtext3                         24C      24C        7         0
-                stringtext2                         23A      23A        9         0
-                stringtext1                         230      230        A         0
+                stringtext3                         249      249        7         0
+                stringtext2                         237      237        9         0
+                stringtext1                         22D      22D        A         0
                 _Bl_Ver1_text                      F0FE     F0FE        1         0
                 _LID_EEP_text                      F0F8     F0F8        4         0
 
@@ -246,14 +246,14 @@ TOTAL           Name                               Link     Load   Length     Sp
 SEGMENTS        Name                           Load    Length   Top    Selector   Space  Class     Delta
 
                 reset_vec                      000000  000001  000001         0       0  CODE        2
-                intentry                       000004  00022C  000230         8       0  CODE        2
+                intentry                       000004  000229  00022D         8       0  CODE        2
                 bssBANK0l                      000020  000008  000028        20       1  BANK0       1
                 bssCOMMON                      000070  000004  000074        70       1  COMMON      1
                 bssBANK1                       0000A0  000045  0000E5        A0       1  BANK1       1
-                stringtext1                    000230  000013  000243       460       0  STRCODE     2
-                text4                          000243  000009  00024C       486       0  CODE        2
-                stringtext3                    00024C  000007  000253       498       0  STRCODE     2
-                clrtext                        000253  000006  000259       4A6       0  CODE        2
+                stringtext1                    00022D  000013  000240       45A       0  STRCODE     2
+                text4                          000240  000009  000249       480       0  CODE        2
+                stringtext3                    000249  000007  000250       492       0  STRCODE     2
+                clrtext                        000250  000006  000256       4A0       0  CODE        2
                 stack                          002095  00005B  0020F0      2095       2  STACK       1
                 config                         008007  000004  00800B     1000E       0  CONFIG      2
                 _LID_EEP_text                  00F0F8  000004  00F0FC     1E1F0       0  STRCODE     2
@@ -269,12 +269,12 @@ UNUSED ADDRESS RANGES
         BANK2            00120-0016F              50           1
         BIGRAM           02000-020EF              F0           1
         CODE             00001-00003               3           2
-                         00259-0025F               7
+                         00256-0025F               A
         CONST            00001-00003               3           2
-                         00259-0025F               7
+                         00256-0025F               A
         EEDATA           0F000-0F0FF             100           2
         ENTRY            00001-00003               3           2
-                         00259-0025F               7
+                         00256-0025F               A
         IDLOC            08000-08003               4           2
         RAM              00028-00067              40           1
                          0006D-0006F               3
@@ -313,26 +313,25 @@ UNUSED ADDRESS RANGES
         SFR8             00400-0046F              70           1
         SFR9             00480-004EF              70           1
         STRCODE          00001-00003               3           2
-                         00259-0025F               7
+                         00256-0025F               A
         STRING           00001-00003               3           2
-                         00259-0025F               7
+                         00256-0025F               A
 
                                   Symbol Table
 
-PL2                          text3         001E3
-PL4                          maintext      00193
-PL6                          maintext      0019B
-PL8                          text6         0022A
+PL2                          text3         001E0
+PL4                          maintext      00196
+PL6                          text6         00227
 _ANSELA                      (abs)         0018C
 _BRG16                       (abs)         00CFB
 _Bl_Ver1                     _Bl_Ver1_text 0F0FE
 _Bl_Ver1_absaddr             (abs)         0F0FE
-_Bt_ComSendData              text2         001EC
+_Bt_ComSendData              text2         001E9
 _Bt_Data                     (abs)         00068
-_Bt_FlashWriteBlock          text3         001A1
-_Bt_ReadData                 text5         00203
-_Bt_UnlockSeq                text4         00243
-_Bt_WriteEep                 text6         0021A
+_Bt_FlashWriteBlock          text3         0019E
+_Bt_ReadData                 text5         00200
+_Bt_UnlockSeq                text4         00240
+_Bt_WriteEep                 text6         00217
 _LATAbits                    (abs)         0010C
 _LID                         bssBANK0l     00024
 _LID_EEP                     _LID_EEP_text 0F0F8
@@ -587,19 +586,18 @@ ___latbits                   (abs)         00000
 ___sp                        stack         02095
 ___stackhi                   (abs)         020EF
 ___stacklo                   (abs)         02095
-__end_ofPL2                  text3         001EC
-__end_ofPL4                  maintext      0019B
-__end_ofPL6                  maintext      001A1
-__end_ofPL8                  text6         00230
+__end_ofPL2                  text3         001E9
+__end_ofPL4                  maintext      0019E
+__end_ofPL6                  text6         0022D
 __end_of_Bl_Ver1             _Bl_Ver1_text 0F0FF
-__end_of_Bt_ComSendData      text2         00203
-__end_of_Bt_FlashWriteBlock  text3         001E3
-__end_of_Bt_ReadData         text5         0021A
-__end_of_Bt_UnlockSeq        text4         0024C
-__end_of_Bt_WriteEep         text6         0022A
+__end_of_Bt_ComSendData      text2         00200
+__end_of_Bt_FlashWriteBlock  text3         001E0
+__end_of_Bt_ReadData         text5         00217
+__end_of_Bt_UnlockSeq        text4         00249
+__end_of_Bt_WriteEep         text6         00227
 __end_of_LID_EEP             _LID_EEP_text 0F0FC
 __end_of__initialization     cinit         0001D
-__end_of_main                maintext      00193
+__end_of_main                maintext      00196
 __end_of_serrvice_isr        intentry      0000C
 __initialization             cinit         0000D
 __p_Bl_Ver1_text             _Bl_Ver1_text 0F0FE
@@ -610,15 +608,15 @@ __pbssCOMMON                 bssCOMMON     00070
 __pcstackCOMMON              cstackCOMMON  00000
 __pintentry                  intentry      00004
 __pmaintext                  maintext      00023
-__pstringtext1               stringtext1   00230
-__pstringtext2               stringtext2   0023A
-__pstringtext3               stringtext3   0024C
+__pstringtext1               stringtext1   0022D
+__pstringtext2               stringtext2   00237
+__pstringtext3               stringtext3   00249
 __pstringtext4               stringtext4   00000
-__ptext2                     text2         001EC
-__ptext3                     text3         001A1
-__ptext4                     text4         00243
-__ptext5                     text5         00203
-__ptext6                     text6         0021A
+__ptext2                     text2         001E9
+__ptext3                     text3         0019E
+__ptext4                     text4         00240
+__ptext5                     text5         00200
+__ptext6                     text6         00217
 __size_of_Bt_ComSendData     (abs)         00000
 __size_of_Bt_FlashWriteBlock (abs)         00000
 __size_of_Bt_ReadData        (abs)         00000
@@ -637,7 +635,7 @@ _mac_user                    bssCOMMON     00071
 _main                        maintext      00023
 _serrvice_isr                intentry      00004
 btemp                        (abs)         00074
-clear_ram0                   clrtext       00253
+clear_ram0                   clrtext       00250
 end_of_initialization        cinit         0001D
 intlevel0                    functab       00000
 intlevel1                    functab       00000
@@ -883,24 +881,23 @@ MODULE INFORMATION
 
 Module		Function		Class		Link	Load	Size
 test_flash.c
-		_Bt_ComSendData		CODE           	01EC	0000	24
-		_Bt_UnlockSeq  		CODE           	0243	0000	10
-		_main          		CODE           	0023	0000	369
-		_Bt_WriteEep   		CODE           	021A	0000	17
+		_Bt_ComSendData		CODE           	01E9	0000	24
+		_Bt_UnlockSeq  		CODE           	0240	0000	10
+		_main          		CODE           	0023	0000	372
+		_Bt_WriteEep   		CODE           	0217	0000	17
 		_serrvice_isr  		CODE           	0004	0000	9
-		_Bt_FlashWriteBlock		CODE           	01A1	0000	67
-		_Bt_ReadData   		CODE           	0203	0000	24
+		_Bt_FlashWriteBlock		CODE           	019E	0000	67
+		_Bt_ReadData   		CODE           	0200	0000	24
 
-test_flash.c estimated size: 520
+test_flash.c estimated size: 523
 
 shared
-		PL8            		CODE           	022A	0000	7
 		_LID_EEP       		STRCODE        	F0F8	0000	5
 		__initialization		CODE           	000D	0000	17
 		_Bl_Ver1       		STRCODE        	F0FE	0000	2
-		PL2            		CODE           	01E3	0000	10
-		PL4            		CODE           	0193	0000	9
-		PL6            		CODE           	019B	0000	7
+		PL2            		CODE           	01E0	0000	10
+		PL4            		CODE           	0196	0000	9
+		PL6            		CODE           	0227	0000	7
 
-shared estimated size: 57
+shared estimated size: 50
 
