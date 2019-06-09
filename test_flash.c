@@ -3,13 +3,13 @@
 //   -----------------
 //   |    0x0000     |   Reset vector
 //   |               |
-//   |    0x0004     |   Interrupt vector
+//   |    0x0004     |   Interrupt vector  jump to 2A4
 //   |               |
 //   |               |
 //   |  Boot Block   |   (this program)
 //   |               |
-//   |    0x0300     |   Re-mapped Reset Vector
-//   |    0x0304     |   Re-mapped High Priority Interrupt Vector
+//   |    0x02A0     |   Re-mapped Reset Vector
+//   |    0x02A4     |   Re-mapped High Priority Interrupt Vector
 //   |               |
 //   |       |       |
 //   |               |
@@ -56,10 +56,10 @@
 // at the interrupt vector and will contain a jump to
 // 0x0204
 #define END_FLASH                0x7FF
-#define APP_START_ADD            0x260
+#define APP_START_ADD            0x2A0
 
 #define  NEW_RESET_VECTOR        APP_START_ADD
-#define  NEW_INTERRUPT_VECTOR    APP_START_ADD + 4 // 0x204
+#define  NEW_INTERRUPT_VECTOR    APP_START_ADD + 4 // 0x2A4
 
 #define _str(x)  #x
 #define str(x)  _str(x)
@@ -99,7 +99,8 @@
 
 
 typedef unsigned char uint8;
-typedef unsigned int uint16;
+typedef short unsigned int uint16;
+typedef long unsigned int uint32;
 
 
 
@@ -115,7 +116,7 @@ typedef unsigned int uint16;
 // 0xF8       LID  0                   0xXX...// unique lock ID  UN/PW 
 const unsigned char Bl_Ver1 @ 0xF0FE = 0x01; // Bl_Ver
 
-const unsigned char LID_EEP[4] @ 0xF0F8 = {'1','2','3','4'};// default LID to be used for fectory programming
+const unsigned char LID_EEP[4] @ 0xF0F8 = {'1','2','3','5'};// default LID to be used for fectory programming
 
 
 // below is FDR data (0xF0 to F7))
@@ -150,6 +151,7 @@ const unsigned char LID_EEP[4] @ 0xF0F8 = {'1','2','3','4'};// default LID to be
 #define FECT_DAT_START_ADDRESS_LSB 0xF8
 
 #define FECT_DAT_DEV_TYP_ADDRESS 0x70FC  // this data (device id) indicates app is valid and can be jmed to app after CRC validation
+
 
 
 struct Str_Com
@@ -214,6 +216,10 @@ uint8 lid_len_cnt = 0;
 uint8 dev_type_ota = 0;
 uint8 *mac_frame;
 
+void set_delay(uint32 del) 
+{
+    while(del--);
+}
 void main(void)
 {
     //OSCILLATOR
@@ -239,12 +245,15 @@ void main(void)
     if(get_pin_5 == 0)  // if switch is pressed on power up
     { 
         while(get_pin_5 == 0);// wait for switch to release
-        SPBRG=207u;   // baud
-
-        Bt_Data.Com.lent = 9;
+        
+        SPBRG=207u;   // set baud 9600 as its basic baud of HC-06
+        
+        Bt_Data.Com.lent = 8;  // do not send end string
         Bt_Data.Com.ptr = "AT+BAUD7"; // set 57k baud 
         Bt_ComSendData();  // but this command is sent at 9600 baud
-       
+        
+        set_delay(0x2FFFF); 
+
         
         // READ default BLE pin stored in EEPROM 
         Bt_Data.ReadMem.add = FECT_DAT_LID_START_ADDRESS;
@@ -256,28 +265,31 @@ void main(void)
             lid_len_cnt++;
             Bt_Data.ReadMem.add++;
         }
-        LID[lid_len_cnt]=0; // end of line
-       
+        
         // set the def baud
         SPBRG=34u;    // 34: 57.6k , 103:19.3k , 207:9600
+       
         
         // set default UN 
         Bt_Data.Com.lent = 9;  //  do not send end of string
         Bt_Data.Com.ptr = "AT+NAMECD" ; 
         Bt_ComSendData();
         
-        Bt_Data.Com.lent = 5; // send end of string chr
+        Bt_Data.Com.lent = 4; // 
         Bt_Data.Com.ptr = LID;
         Bt_ComSendData();
-          
+        
+        set_delay(0x2FFFF); 
+        
         // set Default  PW
         Bt_Data.Com.lent = 6;        
         Bt_Data.Com.ptr =  "AT+PIN";
         Bt_ComSendData();
         
-        Bt_Data.Com.lent = 5; // send end of string chr
+        Bt_Data.Com.lent = 4; // no end of string chr
         Bt_Data.Com.ptr = LID;
         Bt_ComSendData();
+       
         
         // erase data which is reset erasable
         Bt_Data.EepWr.add = FDR_DAT_START_ADDRESS_LSB; // f0ff make application invalid
@@ -290,6 +302,7 @@ void main(void)
     }
     
     // set the baud
+
     SPBRG=34u;    // 34: 57.6k , 103:19.3k , 207:9600
 
     
@@ -456,9 +469,13 @@ void main(void)
                      }
                      Bt_Data.Com.lent = 0;  // cannot be removed
                 }
+                else
+                {
+                    // un supported command received
+                    Bt_Data.Com.lent = 0; // DONOT respond
+                }
                 Bt_Data.Com.ptr = frame;   
                 Bt_ComSendData();   
-                //count = 0;
                 frame[0] = DEF; // this is to make sure on bus idle default is executed
                 dat_cnt = 0;
                 clear_pin_0;
