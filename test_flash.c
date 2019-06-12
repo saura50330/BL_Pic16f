@@ -395,13 +395,14 @@ void main(void)
                 {
                    // Bt_Data.Com.lent = 1; // send back ping 
                 }
-                else if ((frame[0] == MAST_AUTH) ) // awake signal , sand awake back
-                {  
+                else if ((frame[0] == MAST_AUTH) && (dat_cnt == 6)) // only first MAC is compared // user canot acess as credtial length differs in APP 12 and BL 6
+                {
+                    // cmd_1,encp_1,mac_rand_1,mac_4,devid_4,devtype_1 // 12 bytes
                     Bt_Data.ReadMem.add = FDR_DAT_MASTER_MAC_START_ADD;
                     Bt_Data.ReadMem.typ = 1;
                     mac_user = 1; 
                     
-                    mac_frame = &frame[1];
+                    mac_frame = &frame[2]; // skip encription
                     while(Bt_Data.ReadMem.add <= FDR_DAT_MASTER_MAC_END_ADD) // verify MAC address
                     {
                         Bt_ReadData(); // read eeprom
